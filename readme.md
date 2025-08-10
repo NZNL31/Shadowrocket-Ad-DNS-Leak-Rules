@@ -6,9 +6,7 @@
 
 ![二维码](https://nznl31.github.io/Shadowrocket-ADBlock-Rules-Forever/figure/a-nomad.png)
 
-以原版 a-nomad.conf 为基础，融合并引入原项目每日更新的**仅国内外划分 + 广告规则**，旨在提升 DNS 泄露防护与广告屏蔽效果，兼顾安全与隐私。
-作为初学者，虚心求教，欢迎监督和建议。
-感谢 Shadowrocket-ADBlock-Rules-Forever 项目原作者及维护者，colin-chang 以及所有规则维护者，感谢 ChatGPT 在规则合并和脚本编写中的帮助。
+以原版 a-nomad.conf 为基础，融合并引入原项目每日更新的**仅国内外划分 + 广告规则**，旨在提升 DNS 泄露防护与广告屏蔽效果，兼顾安全与隐私。作为初学者，虚心求教，欢迎监督和建议。感谢 Shadowrocket-ADBlock-Rules-Forever 项目原作者及维护者，colin-chang 以及所有规则维护者，感谢 ChatGPT 在规则合并和脚本编写中的帮助。
 
 ------------------------------------------------------
 
