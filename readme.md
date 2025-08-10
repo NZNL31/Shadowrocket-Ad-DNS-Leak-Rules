@@ -1,5 +1,5 @@
 ## 最完善的 iOS Shadowrocket规则
-### 修改说明
+### 修改说明：摆脱广告困扰的同时，解决Shadowrocket在配置模式下，可能出现的DNS泄露问题。
 基于 Shadowrocket-ADBlock-Rules-Forever 项目，结合 colin-chang 设计的 a-nomad.conf 进行个人优化。原版 a-nomad.conf 以防 DNS 泄露为目的，引用了 ACL4SSR 的分流规则。**规则会在每天北京时间 10:00 自动更新。**
 
 规则地址：<https://nznl31.github.io/Shadowrocket-Ad-DNS-Leak-Rules/a-nomad.conf>
