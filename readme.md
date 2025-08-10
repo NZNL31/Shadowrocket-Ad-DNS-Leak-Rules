@@ -10,6 +10,8 @@
 作为初学者，虚心求教，欢迎监督和建议。
 感谢 Shadowrocket-ADBlock-Rules-Forever 项目原作者及维护者，colin-chang 以及所有规则维护者，感谢 ChatGPT 在规则合并和脚本编写中的帮助。
 
+------------------------------------------------------
+
 ### 试更新公告
 
 由于原作者 [h2y](https://github.com/h2y) 已停止维护 [Shadowrocket-ADBlock-Rules](https://github.com/h2y/Shadowrocket-ADBlock-Rules)，Shadowrocket 再无划分如此细致精美的规则。因此我决定用自己有限的能力和技术对该项目以个人的理解进行更新与维护。**所有规则都会在每天北京时间 8:00 更新发布。**
