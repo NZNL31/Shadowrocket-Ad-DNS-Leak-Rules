@@ -95,5 +95,6 @@ def merge_rules_to_anomad(sr_file, anomad_file, output_file):
 if __name__ == "__main__":
     sr_cnip_ad_path = "sr_cnip_ad.conf"
     a_nomad_path = "a-nomad.conf"
-    output_path = "a-nomad-merged.conf"
+    output_path = "a-nomad.conf"
     merge_rules_to_anomad(sr_cnip_ad_path, a_nomad_path, output_path)
+
