@@ -1,0 +1,33 @@
+name: Update Ad Rules and Merge
+
+on:
+  schedule:
+    - cron: '0 10 * * *'  # 每天UTC9点自动执行
+  workflow_dispatch:     # 支持手动触发
+
+jobs:
+  update-ad-rules:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download sr_cnip_ad.conf from upstream
+        run: |
+          curl -o sr_cnip_ad.conf https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/sr_cnip_ad.conf
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Merge ad rules into a-nomad.conf
+        run: python merge_rules.py
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add a-nomad.conf
+          git diff --cached --quiet || (git commit -m "Auto update a-nomad.conf with latest ad rules" && git push)
