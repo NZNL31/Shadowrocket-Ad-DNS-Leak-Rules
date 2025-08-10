@@ -15,7 +15,7 @@ jobs:
 
       - name: Download sr_cnip_ad.conf from upstream
         run: |
-          curl -o sr_cnip_ad.conf https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/sr_cnip_ad.conf
+          curl -o sr_cnip_ad.conf https://nznl31.github.io/Shadowrocket-Ad-DNS-Leak-Rules/sr_cnip_ad.conf 
 
       - name: Setup Python
         uses: actions/setup-python@v4
