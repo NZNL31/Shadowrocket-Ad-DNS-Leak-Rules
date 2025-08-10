@@ -6,7 +6,7 @@ def extract_domain_suffix_rules(filepath):
     with open(filepath, encoding='utf-8') as f:
         for line in f:
             line = line.strip()
-            # 过滤空行、注释
+            # 过滤空行和注释
             if not line or line.startswith('#'):
                 continue
             # 只提取 DOMAIN-SUFFIX 规则
@@ -56,16 +56,41 @@ def merge_rules_to_anomad(sr_file, anomad_file, output_file):
     # 5. 计算要新增的规则（排除已有）
     to_add = new_rules - existing_rules
 
-    # 6. 在 [Rule] 段末尾添加这些规则
-    if rule_section not in sections:
-        # 没有[Rule]段，添加一个
+    # 6. 找广告规则最后一行的位置
+    ad_rule1 = "RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list, 🛑 广告拦截, update-interval = 86400"
+    ad_rule2 = "RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list, 🍃 应用净化, update-interval = 86400"
+
+    if rule_section in sections:
+        lines = sections[rule_section]
+        insert_index = -1
+        for i, line in enumerate(lines):
+            if line.strip() == ad_rule1 or line.strip() == ad_rule2:
+                insert_index = i
+        # insert_index 指向最后出现的广告规则行索引
+
+        if insert_index >= 0:
+            insert_pos = insert_index + 1
+            # 确保插入前有空行隔开
+            if lines and lines[insert_pos -1].strip() != '':
+                lines.insert(insert_pos, '\n')
+                insert_pos += 1
+            for rule in sorted(to_add):
+                lines.insert(insert_pos, rule + '\n')
+                insert_pos += 1
+        else:
+            # 找不到广告规则则追加到段末尾
+            if to_add:
+                if lines and lines[-1].strip() != '':
+                    lines.append('\n')
+                for rule in sorted(to_add):
+                    lines.append(rule + '\n')
+        sections[rule_section] = lines
+    else:
+        # 没有 [Rule] 段，创建并添加
         sections[rule_section] = []
-    if to_add:
-        # 确保前面有空行分隔
-        if sections[rule_section] and sections[rule_section][-1].strip() != '':
-            sections[rule_section].append('\n')
-        for rule in sorted(to_add):
-            sections[rule_section].append(rule + '\n')
+        if to_add:
+            for rule in sorted(to_add):
+                sections[rule_section].append(rule + '\n')
 
     # 7. 重新组合所有段落，保持顺序
     output_lines = []
@@ -77,10 +102,9 @@ def merge_rules_to_anomad(sr_file, anomad_file, output_file):
             current_section = line_strip
             if current_section not in order:
                 order.append(current_section)
-    # 可能有新增的[Rule]段没出现在文件里，则加到最后
     if rule_section not in order:
         order.append(rule_section)
-    # 输出每个段落
+
     for sec in order:
         output_lines.append(sec + '\n')
         output_lines.extend(sections.get(sec, []))
@@ -95,6 +119,5 @@ def merge_rules_to_anomad(sr_file, anomad_file, output_file):
 if __name__ == "__main__":
     sr_cnip_ad_path = "sr_cnip_ad.conf"
     a_nomad_path = "a-nomad.conf"
-    output_path = "a-nomad.conf"
+    output_path = "a-nomad.conf"  # 直接覆盖写回
     merge_rules_to_anomad(sr_cnip_ad_path, a_nomad_path, output_path)
-
