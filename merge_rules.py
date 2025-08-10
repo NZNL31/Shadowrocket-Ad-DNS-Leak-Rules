@@ -1,7 +1,7 @@
 import re
 
 def extract_domain_suffix_rules(filepath):
-    """从文件中提取所有 DOMAIN-SUFFIX 规则，返回去重后的列表"""
+    """从文件中提取所有 DOMAIN-SUFFIX 规则，返回去重后的集合"""
     domain_rules = set()
     with open(filepath, encoding='utf-8') as f:
         for line in f:
@@ -69,9 +69,6 @@ def merge_rules_to_anomad(sr_file, anomad_file, output_file):
 
     # 7. 重新组合所有段落，保持顺序
     output_lines = []
-    # 按文件顺序输出段落
-    # 这里以原文件顺序为准：
-    # a-nomad.conf 的段顺序
     order = []
     current_section = None
     for line in anomad_lines:
