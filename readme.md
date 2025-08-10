@@ -4,7 +4,7 @@
 
 规则地址：<https://nznl31.github.io/Shadowrocket-ADBlock-Rules-Forever/a-nomad.conf>
 
-![项目二维码](Shadowrocket-ADBlock-Rules-Forever/figure/a-nomad.png)
+![二维码](https://nznl31.github.io/Shadowrocket-ADBlock-Rules-Forever/figure/a-nomad.png)
 
 以原版 a-nomad.conf 为基础，融合并引入原项目每日更新的分流和广告规则，旨在提升 DNS 泄露防护与广告屏蔽效果，兼顾安全与隐私。
 作为初学者，虚心求教，欢迎监督和建议。
