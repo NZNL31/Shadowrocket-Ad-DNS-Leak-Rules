@@ -2,7 +2,7 @@ name: Update Ad Rules Daily
 
 on:
   schedule:
-    - cron: '45 7 * * *'  # 每天 UTC 0点运行
+    - cron: '30 0 * * *'  # 每天 UTC 0点运行
   workflow_dispatch:    # 允许手动触发
 
 jobs:
