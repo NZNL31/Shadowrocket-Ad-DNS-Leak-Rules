@@ -2,7 +2,7 @@ name: Update Ad Rules and Merge
 
 on:
   schedule:
-    - cron: '50 7 * * *'  # 每天UTC9点自动执行
+    - cron: '00 1 * * *'  # 每天UTC9点自动执行
   workflow_dispatch:     # 支持手动触发
 
 jobs:
