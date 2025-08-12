@@ -21,7 +21,7 @@ jobs:
           python-version: '3.x'
 
       - name: Merge ad rules into a-nomad.conf
-        run: python merge_rules.py  # merge_rules.py 直接用本地仓库的 sr_cnip_ad.conf
+        run: python Shadowrocket-Ad-DNS-Leak-Rules/merge_rules.py  # merge_rules.py 直接用本地仓库的 sr_cnip_ad.conf
 
       - name: Commit and push changes
         run: |
