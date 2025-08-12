@@ -2,8 +2,8 @@ name: Update Ad Rules and Merge
 
 on:
   schedule:
-    - cron: '00 1 * * *'  # 每天UTC9点自动执行
-  workflow_dispatch:     # 支持手动触发
+    - cron: '0 1 * * *'  # 每天北京时间9点执行
+  workflow_dispatch:
 
 jobs:
   update-ad-rules:
@@ -12,10 +12,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-
-      - name: Download sr_cnip_ad.conf from upstream
-        run: |
-          curl -o sr_cnip_ad.conf https://nznl31.github.io/Shadowrocket-Ad-DNS-Leak-Rules/sr_cnip_ad.conf 
+        with:
+          fetch-depth: 1
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -23,7 +21,7 @@ jobs:
           python-version: '3.x'
 
       - name: Merge ad rules into a-nomad.conf
-        run: python merge_rules.py
+        run: python merge_rules.py  # merge_rules.py 直接用本地仓库的 sr_cnip_ad.conf
 
       - name: Commit and push changes
         run: |
