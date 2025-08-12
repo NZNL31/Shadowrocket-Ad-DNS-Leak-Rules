@@ -1,31 +1,32 @@
-name: Update Ad Rules and Merge
+名称：更新广告规则并合并
 
-on:
-  schedule:
-    - cron: '0 1 * * *'  # 每天北京时间9点执行
-  workflow_dispatch:
+在：
+  日程：
+    - cron : ' 0 10 * * * '   #每天UTC9点自动执行
+  workflow_dispatch :      #支持手动触发
 
-jobs:
-  update-ad-rules:
-    runs-on: ubuntu-latest
+工作：
+  更新广告规则：
+    运行于：ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 1
+    步骤：
+      -名称：签出存储库
+        用途：actions/checkout@v3
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
+      - name :从上游下载 sr_cnip_ad.conf
+        运行：|
+          curl -o sr_cnip_ad.conf https://nznl31.github.io/Shadowrocket-Ad-DNS-Leak-Rules/sr_cnip_ad.conf
+      -名称：安装 Python
+        用途：actions/setup-python@v4
+        和：
+          python 版本：' 3.x '
 
-      - name: Merge ad rules into a-nomad.conf
-        run: python Shadowrocket-Ad-DNS-Leak-Rules/merge_rules.py  # merge_rules.py 直接用本地仓库的 sr_cnip_ad.conf
+      -名称：将广告规则合并到a-nomad.conf中
+        运行：python merge_rules.py
 
-      - name: Commit and push changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name :提交并推送更改
+        运行：|
+          git config user.name“github-actions[bot]”
+          git config 用户.email “github-actions[bot]@users.noreply.github.com”
           git add a-nomad.conf
-          git diff --cached --quiet || (git commit -m "Auto update a-nomad.conf with latest ad rules" && git push)
+          git diff --cached --quiet || (git commit -m "使用最新广告规则自动更新 a-nomad.conf" && git push)
