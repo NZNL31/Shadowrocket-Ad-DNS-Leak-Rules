@@ -2,8 +2,11 @@ name: Update Ad Rules Daily
 
 on:
   schedule:
-    - cron: '30 0 * * *'  # 每天 UTC 0点运行
-  workflow_dispatch:    # 允许手动触发
+    - cron: '30 0 * * *'  # 每天 UTC 0:30 运行
+  workflow_dispatch:       # 允许手动触发
+
+permissions:
+  contents: write   # ✅ 关键：允许写入
 
 jobs:
   update-ad-rules:
@@ -11,14 +14,17 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Download latest ad rules
         run: |
-          curl -o sr_cnip_ad.conf https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/sr_cnip_ad.conf
+          curl -sSL -o sr_cnip_ad.conf https://johnshall.github.io/Shadowrocket-ADBlock-Rules-Forever/sr_cnip_ad.conf
 
       - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add sr_cnip_ad.conf
-          git diff --cached --quiet || (git commit -m "Update ad rules from upstream" && git push)
+          git diff --cached --quiet || (git commit -m "Update ad rules from upstream" && git push origin main)
