@@ -29,7 +29,6 @@ import os
 import re
 import sys
 import urllib.request
-from datetime import datetime, timezone, timedelta
 
 # ---------------------------------------------------------------- 常量配置
 
@@ -65,13 +64,11 @@ CIDR_RE = re.compile(r"^[0-9a-f:.]+/\d{1,3}$")
 MIN_EXPECTED_AD = 10_000          # 广告规则少于这个数基本就是上游挂了
 MAX_DRIFT = 0.40                  # 与上次相比波动超过 40% 视为异常
 
+# 上游配置头部的构建时间，形如 "# build time: UTC 2026-10-23 23:04:12"
+BUILD_TIME_RE = re.compile(r"^#\s*build time:\s*(.+)$", re.I)
+
 
 # ---------------------------------------------------------------- 工具函数
-
-def cst_now() -> str:
-    """北京时间字符串，写进产物头部，方便排查是哪天的规则。"""
-    return datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S CST")
-
 
 def fetch_upstream(url: str, dest: str) -> None:
     print(f"[1/5] 下载上游规则 {url}")
@@ -174,7 +171,28 @@ def load_rules(src: str):
     return ad, allow, stats
 
 
-def build_outputs(ad, allow):
+def read_source_build_time(src: str) -> str:
+    """
+    从上游配置头部读 "# build time: UTC ..."。
+
+    产物头部用上游的构建时间而不是本地时间，这样只要上游没变，
+    重新构建出来的文件就是逐字节相同的，CI 才能靠 git diff 判断
+    "规则无变化" 并跳过提交，不会每天产生一个只有时间戳的空提交。
+    """
+    try:
+        with open(src, encoding="utf-8") as f:
+            for i, line in enumerate(f):
+                if i > 12:
+                    break
+                m = BUILD_TIME_RE.match(line.strip())
+                if m:
+                    return m.group(1).strip()
+    except OSError:
+        pass
+    return "unknown"
+
+
+def build_outputs(ad, allow, stamp: str):
     """把规则整理成两个列表文件的内容。"""
     # 白名单：关键字 > IP > 域名后缀。顺序很重要，必须排在广告规则前面。
     allow_kw = sorted(v for t, v in allow if t == "DOMAIN-KEYWORD")
@@ -190,7 +208,7 @@ def build_outputs(ad, allow):
         "# NAME: {name}\n"
         "# 自动生成，请勿手动编辑（构建脚本 build_rules.py）\n"
         "# 上游: johnshall/Shadowrocket-ADBlock-Rules-Forever\n"
-        "# 构建: {ts}\n"
+        "# 上游构建: {ts}\n"
         "# 规则数: {n}\n"
     )
 
@@ -201,9 +219,8 @@ def build_outputs(ad, allow):
     ad_lines = [f"IP-CIDR,{v}" for v in ad_ip]
     ad_lines += [f"DOMAIN-SUFFIX,{v}" for v in ad_dom]
 
-    ts = cst_now()
-    allow_text = header.format(name=ALLOW_LIST, ts=ts, n=len(allow_lines)) + "\n".join(allow_lines) + "\n"
-    ad_text = header.format(name=AD_LIST, ts=ts, n=len(ad_lines)) + "\n".join(ad_lines) + "\n"
+    allow_text = header.format(name=ALLOW_LIST, ts=stamp, n=len(allow_lines)) + "\n".join(allow_lines) + "\n"
+    ad_text = header.format(name=AD_LIST, ts=stamp, n=len(ad_lines)) + "\n".join(ad_lines) + "\n"
     return ad_text, allow_text, len(ad_lines), len(allow_lines)
 
 
@@ -332,6 +349,8 @@ def main() -> None:
         raise SystemExit(f"找不到 {args.src}，加 --url 从上游下载")
 
     print(f"[2/5] 解析 {args.src}")
+    stamp = read_source_build_time(args.src)
+    print(f"      上游构建时间: {stamp}")
     ad, allow, stats = load_rules(args.src)
     print(
         f"      原始 {stats['total']} 行 | 丢弃非法 {stats['dropped']} "
@@ -340,14 +359,14 @@ def main() -> None:
     print(f"      广告域名 {len(ad)} 条 | 白名单 {len(allow)} 条")
 
     print("[3/5] 生成规则集")
-    ad_text, allow_text, ad_n, allow_n = build_outputs(ad, allow)
+    ad_text, allow_text, ad_n, allow_n = build_outputs(ad, allow, stamp)
 
     print("[4/5] 写入产物")
     atomic_write(AD_LIST, ad_text)
     atomic_write(ALLOW_LIST, allow_text)
 
     meta = {
-        "build_time": cst_now(),
+        "source_build_time": stamp,
         "ad_rules": ad_n,
         "allow_rules": allow_n,
         "source_lines": stats["total"],

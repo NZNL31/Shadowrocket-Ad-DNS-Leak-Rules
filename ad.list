@@ -1,7 +1,7 @@
 # NAME: ad.list
 # 自动生成，请勿手动编辑（构建脚本 build_rules.py）
 # 上游: johnshall/Shadowrocket-ADBlock-Rules-Forever
-# 构建: 2026-10-24 23:15:04 CST
+# 上游构建: UTC 2026-10-23 23:04:12
 # 规则数: 60594
 IP-CIDR,101.227.14.80/29
 IP-CIDR,101.227.200.0/22
