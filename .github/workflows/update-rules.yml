@@ -1,0 +1,68 @@
+name: 构建广告规则集
+
+# 替代原来的 update-sr_cnip_ad.yml + update_ad_rules.yml 两个工作流。
+# 原来两个工作流靠 cron 时间差（00:30 / 01:00 UTC）串联，中间靠 GitHub Pages
+# 传递文件，Pages 有 CDN 缓存，容易出现「合并到昨天的规则」或干脆串不上。
+# 现在合成一个：下载 -> 构建 -> 校验 -> 提交，一条链跑完。
+
+on:
+  schedule:
+    - cron: '0 1 * * *'   # 每天 UTC 01:00 = 北京时间 09:00
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# 防止定时任务和手动触发撞车，导致 push 冲突
+concurrency:
+  group: build-rules
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 签出仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # 直接从上游取规则，不再绕道自己的 GitHub Pages（避免 CDN 缓存拿到旧版本）
+      - name: 构建规则集
+        run: python build_rules.py --url
+
+      - name: 校验产物
+        run: python build_rules.py --check
+
+      - name: 提交
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ad.list unban.list meta.json sr_cnip_ad.conf
+
+          if git diff --cached --quiet; then
+            echo "规则无变化，跳过提交"
+            exit 0
+          fi
+
+          git commit -m "chore: 更新广告规则集 $(date -u '+%Y-%m-%d')"
+
+          # 若期间有人推送过，先对齐再推；连续失败则让任务报错，由人工重跑
+          for i in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "推送成功"
+              exit 0
+            fi
+            echo "推送失败，第 $i 次重试…"
+            git fetch origin main --depth=1 || true
+            git rebase FETCH_HEAD || git rebase --abort || true
+            sleep 5
+          done
+
+          echo "推送连续失败，请手动重跑工作流" >&2
+          exit 1
