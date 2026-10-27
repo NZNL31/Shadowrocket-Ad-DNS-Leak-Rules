@@ -1,7 +1,7 @@
 # NAME: unban.list
 # 自动生成，请勿手动编辑（构建脚本 build_rules.py）
 # 上游: johnshall/Shadowrocket-ADBlock-Rules-Forever
-# 上游构建: UTC 2026-10-25 23:03:52
+# 上游构建: UTC 2026-10-26 23:03:54
 # 规则数: 390
 DOMAIN-KEYWORD,amazon
 DOMAIN-KEYWORD,aws
