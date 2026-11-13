@@ -88,37 +88,44 @@ jobs:
           set -eu
           LOG="$RUNNER_TEMP/commit.log"
           exec > >(tee -a "$LOG") 2>&1
+          export GIT_TRACE=0
 
-          echo "git: $(git --version)"
-          echo "ref: ${GITHUB_REF_NAME:-<none>}  head: $(git rev-parse --short HEAD)"
-          echo "status:"; git status --porcelain || true
+          say() { echo "==> $*"; }
 
+          say "env: git $(git --version) ref=${GITHUB_REF_NAME:-<none>} head=$(git rev-parse --short HEAD)"
+          say "status"; git status --porcelain || true
+
+          say "config"
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # 注意：不再提交 sr_cnip_ad.conf（上游副本，2.1 MB/天，纯历史负担）。
           # 上游版本信息已经记在 meta.json 的 source_build_time 里。
+          say "add"
           git add -A -- ad.list unban.list proxy.list meta.json README.md
 
+          say "diff-check"
           if git diff --cached --quiet; then
             echo "规则无变化，跳过提交"
             exit 0
           fi
 
+          say "commit"
           git commit -m "chore: 更新规则集 $(date -u '+%Y-%m-%d')"
 
-          BRANCH="${GITHUB_REF_NAME:-main}"
-          # 显式用 token 拼 remote，避免依赖 checkout 注入的 extraheader
-          git remote set-url origin \
-            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          say "set-url"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
+          BRANCH="${GITHUB_REF_NAME:-main}"
           for i in 1 2 3; do
+            say "push 第 $i 次"
             if git push origin "HEAD:${BRANCH}"; then
               echo "推送成功"
               exit 0
             fi
-            echo "推送失败，第 $i 次重试…"
+            say "fetch 第 $i 次"
             git fetch origin "$BRANCH" --depth=1 || true
+            say "rebase 第 $i 次"
             git rebase FETCH_HEAD || git rebase --abort || true
             sleep 5
           done
@@ -128,27 +135,28 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 失败时开 issue 提醒
+      - name: 失败时记录诊断
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set +e
           title="规则构建失败 $(date -u '+%Y-%m-%d')"
           {
             echo "工作流失败：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             echo
-            echo "常见原因：上游结构变化（策略名/规则类型改名）、上游暂时不可达、自检阈值触发。"
-            echo
             echo '```'
-            tail -40 "$RUNNER_TEMP/commit.log" 2>/dev/null || echo "（无 commit 日志，失败发生在提交步骤之前）"
+            tail -50 "$RUNNER_TEMP/commit.log" 2>/dev/null || echo "（无 commit 日志：失败发生在「提交」步骤之前）"
             echo '```'
-          } > "$RUNNER_TEMP/issue.md"
+          } > "$RUNNER_TEMP/diag.md"
 
-          if gh issue list --state open --search "$title in:title" --json number | grep -q number; then
-            echo "已有同类 issue，跳过创建"
-            exit 0
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number' 2>/dev/null)
+          if [ -n "$existing" ]; then
+            echo "追加诊断到已有 issue #$existing"
+            gh issue comment "$existing" --body-file "$RUNNER_TEMP/diag.md"
+          else
+            gh issue create --title "$title" --body-file "$RUNNER_TEMP/diag.md"
           fi
-          gh issue create --title "$title" --body-file "$RUNNER_TEMP/issue.md"
 
       - name: 成功时收尾（关闭历史失败 issue）
         if: success()
