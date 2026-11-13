@@ -1,26 +1,68 @@
 name: 构建广告规则集
 
-# 替代原来的 update-sr_cnip_ad.yml + update_ad_rules.yml 两个工作流。
-# 原来两个工作流靠 cron 时间差（00:30 / 01:00 UTC）串联，中间靠 GitHub Pages
-# 传递文件，Pages 有 CDN 缓存，容易出现「合并到昨天的规则」或干脆串不上。
-# 现在合成一个：下载 -> 构建 -> 校验 -> 提交，一条链跑完。
+# 一个工作流跑完整条链：测试 → 下载上游 → 构建 → 自检 → 写回 README → 提交。
+# 关键设计：
+#   * 直接从上游取规则，不绕自己的 GitHub Pages（避免 CDN 缓存拿到旧版本）
+#   * 产物用上游构建时间做指纹，上游未变则产物逐字节相同，git diff 判定「无变化」后跳过提交
+#   * 自检不过就失败，绝不发布坏规则
+#   * 失败时自动开 issue，不再静默
 
 on:
   schedule:
     - cron: '0 1 * * *'   # 每天 UTC 01:00 = 北京时间 09:00
   workflow_dispatch:
 
+  # 改了构建脚本、主配置或测试就立刻重跑，避免「代码改了产物还是旧的」
+  push:
+    branches: [main]
+    paths:
+      - 'build_rules.py'
+      - 'a-nomad.conf'
+      - 'tests/**'
+      - '.github/workflows/update-rules.yml'
+
+  # PR 只跑测试，不提交
+  pull_request:
+    branches: [main]
+    paths:
+      - 'build_rules.py'
+      - 'a-nomad.conf'
+      - 'tests/**'
+      - '.github/workflows/update-rules.yml'
+
 permissions:
   contents: write
+  issues: write
 
-# 防止定时任务和手动触发撞车，导致 push 冲突
+# 定时任务和手动触发撞车时不要互相打断（v2.0.0 用的 cancel-in-progress: true
+# 有概率取消正在 push 的那一次，导致产物与仓库不一致）
 concurrency:
   group: build-rules
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  build:
+  test:
+    name: 单元测试
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 签出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 跑回归测试
+        run: python -m unittest discover -s tests -v
+
+  build:
+    name: 构建并提交
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: 签出仓库
         uses: actions/checkout@v4
@@ -32,27 +74,31 @@ jobs:
         with:
           python-version: '3.12'
 
-      # 直接从上游取规则，不再绕道自己的 GitHub Pages（避免 CDN 缓存拿到旧版本）
       - name: 构建规则集
         run: python build_rules.py --url
 
-      - name: 校验产物
+      - name: 校验产物与主配置
         run: python build_rules.py --check
+
+      - name: 把条数写回 README
+        run: python build_rules.py --update-readme
 
       - name: 提交
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ad.list unban.list meta.json sr_cnip_ad.conf
+
+          # 注意：不再提交 sr_cnip_ad.conf（上游副本，2.1 MB/天，纯历史负担）。
+          # 上游版本信息已经记在 meta.json 的 source_build_time 里。
+          git add ad.list unban.list proxy.list meta.json README.md
 
           if git diff --cached --quiet; then
             echo "规则无变化，跳过提交"
             exit 0
           fi
 
-          git commit -m "chore: 更新广告规则集 $(date -u '+%Y-%m-%d')"
+          git commit -m "chore: 更新规则集 $(date -u '+%Y-%m-%d')"
 
-          # 若期间有人推送过，先对齐再推；连续失败则让任务报错，由人工重跑
           for i in 1 2 3; do
             if git push origin HEAD:main; then
               echo "推送成功"
@@ -66,3 +112,18 @@ jobs:
 
           echo "推送连续失败，请手动重跑工作流" >&2
           exit 1
+
+      - name: 失败时开 issue 提醒
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="规则构建失败 $(date -u '+%Y-%m-%d')"
+          if gh issue list --state open --search "$title in:title" --json number | grep -q number; then
+            echo "已有同类 issue，跳过创建"
+            exit 0
+          fi
+          gh issue create \
+            --title "$title" \
+            --body "工作流失败：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          常见原因：上游结构变化（策略名/规则类型改名）、上游暂时不可达、自检阈值触发。"

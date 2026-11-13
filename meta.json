@@ -1,7 +1,20 @@
 {
   "source_build_time": "UTC 2026-11-12 23:02:32",
-  "ad_rules": 52782,
-  "allow_rules": 390,
+  "ad_rules": 52659,
+  "allow_rules": 0,
+  "proxy_rules": 373,
+  "by_type": {
+    "ad.list": {
+      "DOMAIN-SUFFIX": 52659
+    },
+    "unban.list": {},
+    "proxy.list": {
+      "DOMAIN-SUFFIX": 371,
+      "DOMAIN-KEYWORD": 2
+    }
+  },
+  "ip_rules_excluded": 145,
   "source_lines": 53208,
-  "dropped": 2
+  "dropped": 2,
+  "unknown_policy": 0
 }

@@ -1,3 +1,12 @@
 # 构建临时文件
 *.tmp
 __pycache__/
+.pytest_cache/
+tests/.scratch-*/
+
+# 上游副本：每天 2.1 MB，只用于构建，不需要进版本库
+# 上游版本已记录在 meta.json 的 source_build_time
+sr_cnip_ad.conf
+
+# 单文件版产物（需要时本地生成，不提交）
+a-nomad.full.conf
