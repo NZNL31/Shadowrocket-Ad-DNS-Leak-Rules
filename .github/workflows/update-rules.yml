@@ -85,12 +85,20 @@ jobs:
 
       - name: 提交
         run: |
+          set -eu
+          LOG="$RUNNER_TEMP/commit.log"
+          exec > >(tee -a "$LOG") 2>&1
+
+          echo "git: $(git --version)"
+          echo "ref: ${GITHUB_REF_NAME:-<none>}  head: $(git rev-parse --short HEAD)"
+          echo "status:"; git status --porcelain || true
+
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # 注意：不再提交 sr_cnip_ad.conf（上游副本，2.1 MB/天，纯历史负担）。
           # 上游版本信息已经记在 meta.json 的 source_build_time 里。
-          git add ad.list unban.list proxy.list meta.json README.md
+          git add -A -- ad.list unban.list proxy.list meta.json README.md
 
           if git diff --cached --quiet; then
             echo "规则无变化，跳过提交"
@@ -99,19 +107,26 @@ jobs:
 
           git commit -m "chore: 更新规则集 $(date -u '+%Y-%m-%d')"
 
+          BRANCH="${GITHUB_REF_NAME:-main}"
+          # 显式用 token 拼 remote，避免依赖 checkout 注入的 extraheader
+          git remote set-url origin \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
           for i in 1 2 3; do
-            if git push origin HEAD:main; then
+            if git push origin "HEAD:${BRANCH}"; then
               echo "推送成功"
               exit 0
             fi
             echo "推送失败，第 $i 次重试…"
-            git fetch origin main --depth=1 || true
+            git fetch origin "$BRANCH" --depth=1 || true
             git rebase FETCH_HEAD || git rebase --abort || true
             sleep 5
           done
 
           echo "推送连续失败，请手动重跑工作流" >&2
           exit 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 失败时开 issue 提醒
         if: failure()
@@ -119,11 +134,29 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           title="规则构建失败 $(date -u '+%Y-%m-%d')"
+          {
+            echo "工作流失败：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo
+            echo "常见原因：上游结构变化（策略名/规则类型改名）、上游暂时不可达、自检阈值触发。"
+            echo
+            echo '```'
+            tail -40 "$RUNNER_TEMP/commit.log" 2>/dev/null || echo "（无 commit 日志，失败发生在提交步骤之前）"
+            echo '```'
+          } > "$RUNNER_TEMP/issue.md"
+
           if gh issue list --state open --search "$title in:title" --json number | grep -q number; then
             echo "已有同类 issue，跳过创建"
             exit 0
           fi
-          gh issue create \
-            --title "$title" \
-            --body "工作流失败：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          常见原因：上游结构变化（策略名/规则类型改名）、上游暂时不可达、自检阈值触发。"
+          gh issue create --title "$title" --body-file "$RUNNER_TEMP/issue.md"
+
+      - name: 成功时收尾（关闭历史失败 issue）
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue list --state open --search "规则构建失败 in:title" \
+            --json number --jq '.[].number' | while read -r n; do
+            [ -n "$n" ] && gh issue close "$n" --comment "本次构建已恢复正常，自动关闭。"
+          done
